@@ -1,0 +1,114 @@
+#include "speech.nvgt"
+#include "game_state.nvgt"
+#include "sound_utils.nvgt"
+
+void run_gathering_challenge() {
+    int player_x = 5;
+    int player_y = 5;
+    int wood_x = random(0, 10);
+    int wood_y = random(0, 10);
+    int metal_x = random(0, 10);
+    int metal_y = random(0, 10);
+    int wood_found = 0;
+    int metal_found = 0;
+    
+    speak("Resource Zone. WASD to move. Radar guides you to Wood. Space for direction to Wood. Listen for the Metal chime! Escape to exit.");
+    
+    sound@ beep = sound();
+    beep.load("sounds/click.ogg");
+    
+    sound@ chime = sound();
+    chime.load("sounds/auctionwon.ogg");
+    
+    sound@ axis_drone = sound();
+    axis_drone.load("sounds/click.ogg");
+    
+    timer radar_timer;
+    timer drone_timer;
+    
+    while(true) {
+        float dist_wood = sqrt(pow(player_x - wood_x, 2) + pow(player_y - wood_y, 2));
+        float dist_metal = sqrt(pow(player_x - metal_x, 2) + pow(player_y - metal_y, 2));
+        
+        // Axis Alignment Drone for Wood
+        if(player_x == wood_x || player_y == wood_y) {
+            if(drone_timer.elapsed >= 150) {
+                axis_drone.pitch = 250;
+                axis_drone.volume = -20;
+                axis_drone.stop();
+                axis_drone.play();
+                drone_timer.restart();
+            }
+        }
+        
+        // Wood Radar
+        int x_diff_wood = wood_x - player_x;
+        int pan_wood = x_diff_wood * 15;
+        if(pan_wood < -100) pan_wood = -100;
+        if(pan_wood > 100) pan_wood = 100;
+        
+        int interval = 200 + (int(dist_wood) * 100);
+        if(radar_timer.elapsed >= interval) {
+            beep.pitch = 100 + (10 - int(dist_wood)) * 15;
+            beep.pan = pan_wood;
+            beep.volume = -15;
+            beep.stop();
+            beep.play();
+            radar_timer.restart();
+        }
+
+        // Metal Proximity Chime
+        if(dist_metal < 2.0) {
+            chime.pitch = 200;
+            chime.volume = -20;
+            chime.play();
+        }
+
+        bool moved = false;
+        if(key_pressed(KEY_W)) { if(player_y > 0) { player_y--; moved = true; } }
+        else if(key_pressed(KEY_S)) { if(player_y < 10) { player_y++; moved = true; } }
+        else if(key_pressed(KEY_A)) { if(player_x > 0) { player_x--; moved = true; } }
+        else if(key_pressed(KEY_D)) { if(player_x < 10) { player_x++; moved = true; } }
+        else if(key_pressed(KEY_SPACE)) {
+            string dir = "";
+            if(wood_y < player_y) dir += "North ";
+            if(wood_y > player_y) dir += "South ";
+            if(wood_x < player_x) dir += "West";
+            if(wood_x > player_x) dir += "East";
+            if(dir == "") dir = "Wood here!";
+            speak(dir);
+        }
+        else if(key_pressed(KEY_ESCAPE)) {
+            speak("Exiting. Total: " + wood_found + " wood, " + metal_found + " metal.");
+            return;
+        }
+        
+        if(moved) {
+            beep.pitch = 80;
+            beep.volume = -5;
+            beep.stop();
+            beep.play();
+            
+            if(player_x == wood_x && player_y == wood_y) {
+                int amount = random(15, 40);
+                wood += amount;
+                wood_found += amount;
+                play_win();
+                speak("Found Wood! +" + amount);
+                wood_x = random(0, 10);
+                wood_y = random(0, 10);
+            }
+            if(player_x == metal_x && player_y == metal_y) {
+                int amount = random(5, 15);
+                metal += amount;
+                metal_found += amount;
+                play_win();
+                speak("Found Metal! +" + amount);
+                metal_x = random(0, 10);
+                metal_y = random(0, 10);
+            }
+        }
+        
+        wait(5);
+    }
+}

@@ -1,0 +1,55 @@
+#include "speech.nvgt"
+#include "game_state.nvgt"
+#include "sound_utils.nvgt"
+#include "combat_engine.nvgt"
+
+void run_hacking(Country@ target) {
+    string[] options = {"DDoS Attack (Reduces their Resources)", "Data Breach (Steals Tech Secrets)", "Back"};
+    int choice = 0;
+    
+    speak("Cyber Warfare Console. target: " + target.name + ". " + options[choice]);
+    
+    while(true) {
+        if(key_pressed(KEY_UP)) { if(choice > 0) { choice--; play_click(); speak(options[choice]); } }
+        else if(key_pressed(KEY_DOWN)) { if(choice < int(options.length()) - 1) { choice++; play_click(); speak(options[choice]); } }
+        else if(key_pressed(KEY_RETURN)) {
+            play_click();
+            if(choice == 0) { // DDoS
+                speak("Launching DDoS attack...");
+                wait(1500);
+                int success = 30 + (hacking_skill * 15);
+                if(random(1, 100) <= success) {
+                    int lost = target.resources / 4;
+                    target.resources -= lost;
+                    target.trust -= 20;
+                    global_tension += 5;
+                    play_win();
+                    speak("Attack successful! " + target.name + " lost " + lost + " resources due to system overload.");
+                } else {
+                    speak("Attack mitigated. " + target.name + " has traced your IP!");
+                    target.trust -= 40;
+                }
+                return;
+            }
+            else if(choice == 1) { // Data Breach
+                speak("Bypassing firewalls...");
+                wait(2000);
+                int success = 20 + (hacking_skill * 10);
+                if(random(1, 100) <= success) {
+                    p.military_power += 40;
+                    target.trust -= 30;
+                    global_tension += 10;
+                    play_win();
+                    speak("Breach successful! Stole military blueprints. Power increased by 40.");
+                } else {
+                    speak("Encryption too strong. Breach failed.");
+                    target.trust -= 10;
+                }
+                return;
+            }
+            else if(choice == 2) return;
+        }
+        else if(key_pressed(KEY_ESCAPE)) return;
+        wait(5);
+    }
+}

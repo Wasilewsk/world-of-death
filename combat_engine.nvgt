@@ -1,0 +1,48 @@
+#include "speech.nvgt"
+#include "game_state.nvgt"
+
+void run_combat(Country@ enemy) {
+    if(p.resources < 50) {
+        speak("You do not have enough resources to launch a military campaign. (Need 50)");
+        return;
+    }
+    
+    p.resources -= 50;
+    play_notify();
+    speak("Engaging in combat with " + enemy.name + ". 50 resources consumed for deployment.");
+    
+    string[] tactics = {"Blitzkrieg", "Defensive Stance", "Air Superiority", "Cyber Warfare"};
+    int choice = 0;
+    
+    speak("Select Tactic: " + tactics[choice]);
+    
+    bool choosing = true;
+    while(choosing) {
+        if(key_pressed(KEY_UP)) { if(choice > 0) choice--; speak(tactics[choice]); }
+        if(key_pressed(KEY_DOWN)) { if(choice < 3) choice++; speak(tactics[choice]); }
+        if(key_pressed(KEY_RETURN)) { choosing = false; }
+        wait(5);
+    }
+    
+    // Resolve Combat
+    int player_roll = random(1, 20) + (p.military_power / 10) + (fortifications * 2);
+    int enemy_roll = random(1, 20) + (enemy.military_power / 10);
+    
+    if(player_roll >= enemy_roll) {
+        play_win();
+        int metal_won = random(20, 50);
+        speak("Victory! You have secured the region.");
+        p.resources += 150;
+        metal += metal_won;
+        enemy.military_power -= 20;
+        enemy.trust -= 30;
+        speak("Scavenged " + metal_won + " metal from the battlefield.");
+    } else {
+        speak("Defeat! Your forces have been pushed back.");
+        int damage = 20 - (fortifications * 5);
+        if(damage < 5) damage = 5;
+        p.military_power -= damage;
+        enemy.trust -= 10;
+        speak("Military power lost: " + damage);
+    }
+}
