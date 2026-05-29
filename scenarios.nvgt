@@ -1,0 +1,111 @@
+#include "speech.nvgt"
+#include "game_state.nvgt"
+#include "combat_engine.nvgt"
+
+void spawn_new_nation() {
+    string[] names = {"Mars Colony Alpha", "The Oceanic Union", "Subterranean Network", "Orbi-City One", "The Silicon Valley Sovereign"};
+    string name = names[random(0, int(names.length()) - 1)];
+    
+    // Check if name already exists
+    for(uint i = 0; i < countries.length(); i++) {
+        if(countries[i].name == name) return;
+    }
+    
+    countries.insert_last(@Country(name, 100 + (global_tension * 2), 50, 500 + (global_tension * 5)));
+    speak("URGENT NEWS: A new power has emerged on the global stage: " + name + "!");
+    play_notify();
+}
+
+void trigger_random_scenario() {
+    global_tension += 2;
+    int event = random(1, 8); // Increased range
+    Country@ random_enemy = countries[random(0, int(countries.length()) - 1)];
+    
+    if(event == 1) {
+        speak("Global Crisis: A pandemic has hit!");
+        int loss = 10 + (global_tension / 10);
+        for(uint i = 0; i < countries.length(); i++) countries[i].military_power -= loss;
+        p.military_power -= loss;
+    } else if(event == 2) {
+        speak("Aggression: " + random_enemy.name + " raid!");
+        run_combat(random_enemy);
+    } else if(event == 3) {
+        speak("Diplomatic Breakthrough!");
+        if(p.resources >= 100) {
+            p.resources -= 100; p.military_power += 50;
+            speak("Military tech improved.");
+        } else speak("Declined.");
+    } else if(event == 4) {
+        speak("Alliance News: Defensive pact formed!");
+        random_enemy.trust += 20;
+    } else if(event == 5) {
+        speak("Industrial Discovery! A massive scrapyard was found near your borders.");
+        int scrap = random(50, 100);
+        metal += scrap;
+        speak("Salvaged " + scrap + " metal units.");
+    } else if(event == 6) {
+        if(random_enemy.trust < 40) {
+            int attack_type = random(1, 2);
+            if(attack_type == 1) {
+                speak("CYBER ALERT: " + random_enemy.name + " is D-D-O-S-ing your infrastructure!");
+                int lost = p.resources / 6;
+                p.resources -= lost;
+                speak("They siphoned " + lost + " resources before your firewall engaged.");
+            } else {
+                speak("SECURITY BREACH: " + random_enemy.name + " has hacked your military servers!");
+                int power_loss = random(10, 30);
+                p.military_power -= power_loss;
+                speak("Confidential blueprints were stolen. Military power decreased by " + power_loss);
+            }
+            play_alarm();
+        }
+    } else if(event == 7) {
+        spawn_new_nation();
+    } else if(event == 8) {
+        speak("Trade Shipwreck: A transport carrying metal has crashed in your territory.");
+        int loot = random(30, 60);
+        metal += loot;
+        speak("Recovered " + loot + " metal from the debris.");
+    }
+}
+
+void process_ai_turns() {
+    p.resources += (economic_hubs * 50);
+    if(economic_hubs > 0) speak("Passive income from hubs: " + (economic_hubs * 50));
+    
+    // Cyber Hubs increase hacking skill slowly
+    if(cyber_hubs > 0) {
+        hacking_skill += cyber_hubs;
+        if(hacking_skill > 100) hacking_skill = 100;
+    }
+    
+    // Gathering Robots
+    if(gathering_robots > 0) {
+        int g_wood = gathering_robots * random(10, 20);
+        int g_metal = gathering_robots * random(2, 5);
+        wood += g_wood;
+        metal += g_metal;
+        speak("Gathering robots collected " + g_wood + " wood and " + g_metal + " metal.");
+    }
+
+    // Stealing Robots
+    if(stealing_robots > 0) {
+        Country@ target = countries[random(0, countries.length() - 1)];
+        int s_amount = stealing_robots * random(20, 50);
+        p.resources += s_amount;
+        target.resources -= s_amount;
+        target.trust -= (stealing_robots * 2);
+        speak("Stealing robots siphoned " + s_amount + " resources from " + target.name);
+    }
+
+    // War Robots (Passive Power/Defense)
+    if(war_robots > 0) {
+        p.military_power += (war_robots * 2); // Constant minor power growth
+        speak("War robots are fortifying your borders. Power + " + (war_robots * 2));
+    }
+    
+    for(uint i = 0; i < countries.length(); i++) {
+        countries[i].resources += 10 + (global_tension / 5); 
+        if(countries[i].trust < 20) countries[i].military_power += 5 + (global_tension / 10);
+    }
+}

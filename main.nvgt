@@ -1,0 +1,238 @@
+#include "speech.nvgt"
+#include "game_state.nvgt"
+#include "sound_utils.nvgt"
+#include "combat_engine.nvgt"
+#include "diplomacy.nvgt"
+#include "scenarios.nvgt"
+#include "crafting.nvgt"
+#include "stealing.nvgt"
+#include "gathering_minigame.nvgt"
+#include "hacking.nvgt"
+#include "updater.nvgt"
+
+sound@ menu_click;
+sound@ main_music;
+sound@ settings_music;
+
+void init_sounds() {
+    @menu_click = sound();
+    menu_click.load("sounds/click.ogg");
+    
+    @main_music = sound();
+    main_music.load("sounds/music.ogg");
+    main_music.volume = music_volume;
+
+    @settings_music = sound();
+    settings_music.load("sounds/loop5.wav");
+    settings_music.volume = music_volume;
+}
+
+void update_volumes() {
+    main_music.volume = music_volume;
+    settings_music.volume = music_volume;
+}
+
+void travel(int dir) {
+    p.current_location_index += dir;
+    if(p.current_location_index < 0) p.current_location_index = int(countries.length()) - 1;
+    if(p.current_location_index >= int(countries.length())) p.current_location_index = 0;
+    
+    play_click();
+    string status = countries[p.current_location_index].name + ". ";
+    status += "Power: " + p.military_power + ". Resources: " + p.resources + ". Wood: " + wood + ". Metal: " + metal + ". Recruits: " + recruits + ". ";
+    if(gathering_robots + stealing_robots + war_robots > 0) {
+        status += "Robots active: " + (gathering_robots + stealing_robots + war_robots) + ". ";
+    }
+    status += "Trust: " + countries[p.current_location_index].trust;
+    speak(status);
+}
+
+void game_loop() {
+    speak("Current location: " + countries[p.current_location_index].name);
+    speak("Left/Right to travel, C: Combat, D: Diplomacy, G: Gather, F: Craft, S: Steal, H: Hack, Escape: Menu.");
+
+    while(true) {
+        bool action_taken = false;
+        if(key_pressed(KEY_LEFT)) { travel(-1); action_taken = true; }
+        else if(key_pressed(KEY_RIGHT) ) { travel(1); action_taken = true; }
+        else if(key_pressed(KEY_C)) { run_combat(countries[p.current_location_index]); action_taken = true; }
+        else if(key_pressed(KEY_D)) { run_diplomacy(countries[p.current_location_index]); action_taken = true; }
+        else if(key_pressed(KEY_G)) { run_gathering_challenge(); action_taken = true; }
+        else if(key_pressed(KEY_F)) { run_crafting(); action_taken = true; }
+        else if(key_pressed(KEY_S)) { run_stealing(countries[p.current_location_index]); action_taken = true; }
+        else if(key_pressed(KEY_H)) { run_hacking(countries[p.current_location_index]); action_taken = true; }
+        else if(key_pressed(KEY_ESCAPE)) {
+            play_click();
+            pause_menu();
+            speak("Current location: " + countries[p.current_location_index].name);
+        }
+        
+        if(action_taken) {
+            p.turn_count++;
+            if(p.turn_count >= 3) {
+                p.turn_count = 0;
+                process_ai_turns();
+                trigger_random_scenario();
+            }
+        }
+        
+        wait(5);
+    }
+}
+
+void start_campaign() {
+    speak("Campaign started. You are leading " + p.nation_name + ".");
+    game_loop();
+}
+
+void pause_menu() {
+    string[] p_options = {"Continue", "Save Game", "Main Menu"};
+    int p_choice = 0;
+    speak("Paused. " + p_options[p_choice]);
+    
+    while(true) {
+        if(key_pressed(KEY_UP)) {
+            if(p_choice > 0) { p_choice--; play_click(); speak(p_options[p_choice]); }
+        }
+        else if(key_pressed(KEY_DOWN)) {
+            if(p_choice < int(p_options.length()) - 1) { p_choice++; play_click(); speak(p_options[p_choice]); }
+        }
+        else if(key_pressed(KEY_RETURN)) {
+            play_click();
+            if(p_choice == 0) return;
+            if(p_choice == 1) save_game();
+            if(p_choice == 2) { main_menu(); return; }
+        }
+        else if(key_pressed(KEY_ESCAPE)) return;
+        wait(5);
+    }
+}
+
+void settings_menu() {
+    main_music.stop();
+    settings_music.play_looped();
+    int s_choice = 0;
+    
+    while(true) {
+        string[] s_options = {
+            "Difficulty: " + (difficulty == 1 ? "Easy" : (difficulty == 2 ? "Normal" : "Hard")),
+            "Music Volume: " + (music_volume + 100) + " percent",
+            "Back"
+        };
+        
+        speak(s_options[s_choice]);
+        
+        bool in_settings = true;
+        while(in_settings) {
+            if(key_pressed(KEY_UP)) {
+                if(s_choice > 0) {
+                    s_choice--;
+                    play_click();
+                    speak(s_options[s_choice]);
+                }
+            }
+            else if(key_pressed(KEY_DOWN)) {
+                if(s_choice < int(s_options.length()) - 1) {
+                    s_choice++;
+                    play_click();
+                    speak(s_options[s_choice]);
+                }
+            }
+            else if(key_pressed(KEY_LEFT)) {
+                if(s_choice == 1) {
+                    if(music_volume > -100) music_volume -= 5;
+                    update_volumes();
+                    speak((music_volume + 100) + " percent");
+                }
+            }
+            else if(key_pressed(KEY_RIGHT)) {
+                if(s_choice == 1) {
+                    if(music_volume < 0) music_volume += 5;
+                    update_volumes();
+                    speak((music_volume + 100) + " percent");
+                }
+            }
+            else if(key_pressed(KEY_RETURN)) {
+                play_click();
+                if(s_choice == 0) {
+                    difficulty++;
+                    if(difficulty > 3) difficulty = 1;
+                    speak("Difficulty: " + (difficulty == 1 ? "Easy" : (difficulty == 2 ? "Normal" : "Hard")));
+                }
+                else if(s_choice == 2) {
+                    settings_music.stop();
+                    main_music.play_looped();
+                    return;
+                }
+            }
+            else if(key_pressed(KEY_ESCAPE)) {
+                settings_music.stop();
+                main_music.play_looped();
+                play_click();
+                return;
+            }
+            wait(5);
+        }
+    }
+}
+
+void main_menu() {
+    string[] options;
+    options.insert_last("Start Campaign");
+    options.insert_last("Load Game");
+    options.insert_last("Settings");
+    if(SCRIPT_COMPILED) options.insert_last("Check for Updates");
+    options.insert_last("Exit");
+    
+    int choice = 0;
+    speak("Main Menu. " + options[choice]);
+    
+    while(true) {
+        if(key_pressed(KEY_UP)) {
+            if(choice > 0) {
+                choice--;
+                play_click();
+                speak(options[choice]);
+            }
+        }
+        else if(key_pressed(KEY_DOWN)) {
+            if(choice < int(options.length()) - 1) {
+                choice++;
+                play_click();
+                speak(options[choice]);
+            }
+        }
+        else if(key_pressed(KEY_RETURN)) {
+            play_click();
+            string selected = options[choice];
+            if(selected == "Start Campaign") {
+                start_campaign();
+                speak("Main Menu. " + selected);
+            }
+            else if(selected == "Load Game") {
+                load_game();
+                start_campaign();
+                speak("Main Menu. " + selected);
+            }
+            else if(selected == "Settings") {
+                settings_menu();
+                speak("Main Menu. " + selected);
+            }
+            else if(selected == "Check for Updates") {
+                check_for_updates();
+                speak("Main Menu. " + selected);
+            }
+            else if(selected == "Exit") exit();
+        }
+        wait(5);
+    }
+}
+
+void main() {
+    show_window("World of Death");
+    init_sounds();
+    init_world();
+    
+    main_music.play_looped();
+    main_menu();
+}

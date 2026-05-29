@@ -1,0 +1,32 @@
+#include "speech.nvgt"
+#include "game_state.nvgt"
+#include "sound_utils.nvgt"
+#include "combat_engine.nvgt"
+
+void run_stealing(Country@ target) {
+    speak("Attempting to steal resources from " + target.name + "...");
+    wait(1000);
+    
+    int success_chance = 40 + (spy_network * 10);
+    if(success_chance > 90) success_chance = 90;
+    
+    int roll = random(1, 100);
+    if(roll <= success_chance) {
+        int amount = random(100, 300);
+        int wood_amount = random(20, 50);
+        p.resources += amount;
+        wood += wood_amount;
+        target.resources -= amount;
+        target.trust -= 10;
+        play_win();
+        speak("Success! You stole " + amount + " resources and " + wood_amount + " wood.");
+    } else {
+        target.trust -= 50;
+        speak("Failure! You were caught. " + target.name + " is furious.");
+        play_alarm();
+        if(target.trust < 10) {
+            speak("They have declared war immediately!");
+            run_combat(target);
+        }
+    }
+}
