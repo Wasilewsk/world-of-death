@@ -1,15 +1,5 @@
 #include "speech.nvgt"
-#include "game_state.nvgt"
-#include "sound_utils.nvgt"
-#include "combat_engine.nvgt"
-#include "diplomacy.nvgt"
-#include "scenarios.nvgt"
-#include "crafting.nvgt"
-#include "stealing.nvgt"
-#include "gathering_minigame.nvgt"
-#include "hacking.nvgt"
-#include "updater.nvgt"
-
+#include"includes/*.nvgt"
 sound@ menu_click;
 sound@ main_music;
 sound@ settings_music;
